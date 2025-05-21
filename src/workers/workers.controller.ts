@@ -16,7 +16,6 @@ import CreateWorkerDto from './dto/create-worker.dto';
 import { Response } from 'express';
 import { User } from 'src/decorators/user.decorator';
 import { WorkerTokenInterface } from 'src/types/interfaces/user.interface';
-import { AuthGuard } from 'src/guards/auth.guard';
 import { OwnerGuard } from 'src/guards/owner.guard';
 import { SignInDto } from './dto/sign-in.dto';
 import { RefreshGuard } from 'src/guards/refresh.guard';

@@ -10,6 +10,7 @@ import {
 import { ProductsEntity } from './product.entity';
 import { OrderItemsEntity } from 'src/orders/entities/order-items.entity';
 import { SizesEnum } from 'src/types/enums/product.enum';
+import { CostsEntity } from './good-costs.entity';
 
 @Entity({ name: 'product_sorts' })
 export class ProductSortsEntity {
@@ -38,6 +39,10 @@ export class ProductSortsEntity {
     cascade: true,
   })
   order_items: OrderItemsEntity[];
+  @OneToMany(() => CostsEntity, (cost) => cost.sort, {
+    cascade: true,
+  })
+  costs: CostsEntity[];
 
   @CreateDateColumn()
   created_at: Date;

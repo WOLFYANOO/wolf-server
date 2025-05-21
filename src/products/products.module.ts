@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductsEntity } from './entities/product.entity';
 import { ProductSortsEntity } from './entities/product-sort.entity';
 import { CategoriesEntity } from 'src/category/entities/category.entity';
+import { CostsEntity } from './entities/good-costs.entity';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { CategoriesEntity } from 'src/category/entities/category.entity';
       ProductsEntity,
       ProductSortsEntity,
       CategoriesEntity,
+      CostsEntity,
     ]),
   ],
   controllers: [ProductsController],

@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -16,6 +15,7 @@ import { ErrorMsg } from 'src/utils/base';
 import { CreateSortDto } from './dto/create-sort.dto';
 import { UpdateSortDto } from './dto/update-sorts.dto';
 import { CustomProductSortsInterface } from 'src/types/interfaces/user.interface';
+import { CostsEntity } from './entities/good-costs.entity';
 
 @Injectable()
 export class ProductsService {
@@ -28,6 +28,9 @@ export class ProductsService {
 
     @InjectRepository(ProductSortsEntity)
     private readonly sortsRepo: Repository<ProductSortsEntity>,
+
+    @InjectRepository(CostsEntity)
+    private readonly costsRepo: Repository<CostsEntity>,
   ) {}
 
   async create(createProductDto: CreateProductDto) {
@@ -101,7 +104,6 @@ export class ProductsService {
 
     return product;
   }
-
   async update(id: string, updateProductDto: UpdateProductDto) {
     const product = await this.productsRepo.findOne({
       where: { id },
@@ -135,7 +137,6 @@ export class ProductsService {
       message: 'تم تحديث المنتج بنجاح',
     };
   }
-
   async createSort(productId: string, createSortDto: CreateSortDto) {
     const product = await this.productsRepo.findOne({
       where: { id: productId },
@@ -157,12 +158,19 @@ export class ProductsService {
       ...createSortDto,
       product,
     });
+
     try {
       await this.productsRepo.save({
         ...product,
         qty: product.qty + createSortDto.qty,
       });
-      await this.sortsRepo.save(newSort);
+      const savedSort = await this.sortsRepo.save(newSort);
+      const costsRepo = this.costsRepo.create({
+        sort: savedSort,
+        qty: createSortDto.qty,
+        price: createSortDto.costPrice,
+      });
+      await this.costsRepo.save(costsRepo);
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException(ErrorMsg);
@@ -197,13 +205,25 @@ export class ProductsService {
 
     try {
       if (updateSortDto.qty !== undefined) {
+        console.log('updateSortDto.qty !== undefined');
         const productQty = sort.product.qty - sort.qty + updateSortDto.qty;
         await this.productsRepo.save({
           ...sort.product,
           qty: productQty,
         });
+        const newQty = updateSortDto.qty - sort.qty;
+        const oldSortQty = sort.qty;
+        Object.assign(sort, updateSortDto);
+        if (updateSortDto.qty > oldSortQty) {
+          console.log(`updateSortDto.qty > sort.qty`);
+          const newCost = this.costsRepo.create({
+            sort,
+            qty: newQty,
+            price: updateSortDto.costPrice,
+          });
+          await this.costsRepo.save(newCost);
+        }
       }
-      Object.assign(sort, updateSortDto);
       await this.sortsRepo.save(sort);
     } catch (error) {
       console.error(error);
@@ -215,7 +235,6 @@ export class ProductsService {
       message: 'تم تحديث الصنف بنجاح',
     };
   }
-
   async deleteSort(id: string) {
     const sort: CustomProductSortsInterface = await this.sortsRepo
       .createQueryBuilder('sort')
@@ -240,7 +259,6 @@ export class ProductsService {
       throw new InternalServerErrorException();
     }
   }
-
   async findOneSort(id: string) {
     const sort = await this.sortsRepo.findOne({
       where: { id },
