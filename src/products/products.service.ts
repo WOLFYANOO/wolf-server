@@ -212,17 +212,13 @@ export class ProductsService {
           qty: productQty,
         });
         const newQty = updateSortDto.qty - sort.qty;
-        const oldSortQty = sort.qty;
         Object.assign(sort, updateSortDto);
-        if (updateSortDto.qty > oldSortQty) {
-          console.log(`updateSortDto.qty > sort.qty`);
-          const newCost = this.costsRepo.create({
-            sort,
-            qty: newQty,
-            price: updateSortDto.costPrice,
-          });
-          await this.costsRepo.save(newCost);
-        }
+        const newCost = this.costsRepo.create({
+          sort,
+          qty: newQty,
+          price: updateSortDto.costPrice,
+        });
+        await this.costsRepo.save(newCost);
       }
       await this.sortsRepo.save(sort);
     } catch (error) {
