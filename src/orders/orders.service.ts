@@ -39,6 +39,7 @@ export class OrdersService {
     tax,
     discount,
   }: CreateOrderDto) {
+    if (+tax > 99 || +tax < 1) throw new BadRequestException();
     const client = await this.clientsService.findClientById(client_id);
     if (!client) {
       throw new NotFoundException('Client not found.');
@@ -86,6 +87,12 @@ export class OrdersService {
         order,
         unit_price: productSort.price,
       });
+    }
+    if (discount > total_price) {
+      await this.ordersRepo.delete({ id: savedOrder.id });
+      throw new ConflictException(
+        'لا يمكن ان يكون الخصم اكبر من الفاتورة كاملة.',
+      );
     }
     for (const item of orderItemsPrepare) {
       await this.productsService.updateSort(item.sort.id, {
@@ -149,6 +156,34 @@ export class OrdersService {
     if (!order) throw new NotFoundException('No Order Found.');
     return order;
   }
+  async updateOrder(id: string, updateOrderDto: UpdateOrderDto) {
+    const order = await this.ordersRepo.findOne({
+      where: { id },
+      relations: ['payment'],
+    });
+    if (!order) throw new NotFoundException('الطلب المراد تعديله غير موجود.');
+    if (updateOrderDto.discount > order.total_price)
+      throw new ConflictException(
+        'لا يمكن ان يكون الخصم اكبر من الفاتورة كاملة.',
+      );
+    Object.assign(order, updateOrderDto);
+    const payment = order.payment;
+    Object.assign(payment, {
+      ...updateOrderDto,
+      status: updateOrderDto.paid_status,
+    });
+    try {
+      await this.ordersRepo.save(order);
+      await this.paymentsRepo.save(payment);
+    } catch (err) {
+      console.error(err);
+      throw new InternalServerErrorException();
+    }
+    return {
+      done: true,
+      message: 'تم تعديل الطلب بنجاح.',
+    };
+  }
   //* ===================
   async returnOneItem(itemId: string, qty: number, reason?: string) {
     const item = await this.ItemsRepo.findOne({
@@ -158,7 +193,7 @@ export class OrdersService {
     if (!item) throw new NotFoundException('الصنف المراد ارجاعه غير موجود.');
     if (item.qty < qty)
       throw new ConflictException(
-        'الكمية المراد ارجاعها اكبر من الكمية المسجلة.',
+        'الكمية المراد ارجاعها اكبر من الكمية الفعلية للطلب.',
       );
     const itemReady = { ...item, qty: item.qty - qty };
     const returnReady = this.returnRepo.create({

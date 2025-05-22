@@ -263,4 +263,21 @@ export class ProductsService {
     if (!sort) throw new NotFoundException('الصنف غير موجود');
     return sort;
   }
+  async findAllCosts(page: number = 1, limit: number = 1000) {
+    const [costs, total] = await this.costsRepo
+      .createQueryBuilder('cost')
+      .leftJoinAndSelect('cost.sort', 'sort')
+      .leftJoin('sort.product', 'product')
+      .addSelect(['product.id', 'product.name'])
+      .orderBy('cost.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+    return {
+      costs,
+      total,
+      page,
+      limit,
+    };
+  }
 }

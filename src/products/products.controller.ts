@@ -14,7 +14,6 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateSortDto } from './dto/create-sort.dto';
 import { UpdateSortDto } from './dto/update-sorts.dto';
-import { AuthGuard } from 'src/guards/auth.guard';
 import { ReaderGuard } from 'src/guards/reader.guard';
 import { OwnerGuard } from 'src/guards/owner.guard';
 
@@ -35,20 +34,6 @@ export class ProductsController {
   @Get('/sorts')
   async findAllSorts() {
     return await this.productsService.findAllSorts();
-  }
-
-  @Get(':id')
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return await this.productsService.findOne(id);
-  }
-
-  @Patch(':id')
-  @UseGuards(OwnerGuard)
-  async update(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() updateProductDto: UpdateProductDto,
-  ) {
-    return await this.productsService.update(id, updateProductDto);
   }
 
   @Post(':id/sorts')
@@ -72,5 +57,23 @@ export class ProductsController {
   @UseGuards(OwnerGuard)
   async deleteSort(@Param('id', new ParseUUIDPipe()) sortId: string) {
     return await this.productsService.deleteSort(sortId);
+  }
+  @Get('/costs')
+  async findAllCosts() {
+    return await this.productsService.findAllCosts();
+  }
+
+  @Get(':id')
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return await this.productsService.findOne(id);
+  }
+
+  @Patch(':id')
+  @UseGuards(OwnerGuard)
+  async update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() updateProductDto: UpdateProductDto,
+  ) {
+    return await this.productsService.update(id, updateProductDto);
   }
 }
