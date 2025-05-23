@@ -88,19 +88,20 @@ export class OrdersService {
         unit_price: productSort.price,
       });
     }
-    if (discount > total_price) {
+    if (
+      discount >
+      Number(total_price * (tax !== undefined ? Number(tax) / 100 + 1 : 1))
+    ) {
       await this.ordersRepo.delete({ id: savedOrder.id });
       throw new ConflictException(
         'لا يمكن ان يكون الخصم اكبر من الفاتورة كاملة.',
       );
     }
     for (const item of orderItemsPrepare) {
-      await this.productsService.updateSort(item.sort.id, {
-        qty: item.sort.qty - item.qty,
-      });
-      await this.productsService.update(item.product.id, {
-        qty: item.product.qty - item.qty,
-      });
+      await this.productsService.updateSortQtyOrders(
+        item.sort.id,
+        item.sort.qty - item.qty,
+      );
       const orderItem = this.ItemsRepo.create(item);
       await this.ItemsRepo.save(orderItem);
     }
@@ -188,7 +189,7 @@ export class OrdersService {
   async returnOneItem(itemId: string, qty: number, reason?: string) {
     const item = await this.ItemsRepo.findOne({
       where: { id: itemId },
-      relations: ['sort'],
+      relations: ['sort', 'order'],
     });
     if (!item) throw new NotFoundException('الصنف المراد ارجاعه غير موجود.');
     if (item.qty < qty)
@@ -201,15 +202,58 @@ export class OrdersService {
       qty,
       reason,
     });
+    const totalPriceBefore = item.qty * item.unit_price;
+    const totalPriceForOrder =
+      item.order.total_price -
+      totalPriceBefore +
+      (item.qty - qty) * item.unit_price;
+    const updateOrder = {
+      ...item.order,
+      total_price: totalPriceForOrder,
+    };
     try {
+      await this.ordersRepo.save(updateOrder);
       await this.ItemsRepo.save(itemReady);
       await this.returnRepo.save(returnReady);
-      await this.productsService.updateSort(item.sort.id, {
-        qty: qty + item.sort.qty,
-      });
+      await this.productsService.updateSortQtyOrders(
+        item.sort.id,
+        qty + item.sort.qty,
+      );
     } catch (err) {
       console.log(err);
       throw new InternalServerErrorException(ErrorMsg);
     }
+    return {
+      done: true,
+      message: 'تم تنفيذ الارجاع بنجاح.',
+    };
+  }
+  async getAllReturns(page: number = 1, limit: number = 1000) {
+    const [returns, total] = await this.returnRepo
+      .createQueryBuilder('return')
+      .leftJoinAndSelect('return.order_item', 'item')
+      .leftJoin('item.order', 'order')
+      .addSelect(['order.id'])
+      .leftJoin('order.client', 'client')
+      .addSelect(['client.id', 'client.user_name'])
+      .leftJoin('item.sort', 'sort')
+      .addSelect([
+        'sort.id',
+        'sort.name',
+        'sort.color',
+        'sort.size',
+        'sort.qty',
+      ])
+      .leftJoin('sort.product', 'product')
+      .addSelect(['product.id', 'product.name'])
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+    return {
+      returns,
+      total,
+      page,
+      limit,
+    };
   }
 }

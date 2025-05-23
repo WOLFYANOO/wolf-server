@@ -31,11 +31,6 @@ export class OrdersController {
     return await this.ordersService.getAllOrders();
   }
 
-  @Get(':id')
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return await this.ordersService.findOne(id);
-  }
-
   @Patch(':id')
   @UseGuards(OwnerGuard)
   async updateOrder(
@@ -51,5 +46,14 @@ export class OrdersController {
     @Body() { reason, qty }: ReturnDto,
   ) {
     return await this.ordersService.returnOneItem(itemId, qty, reason);
+  }
+  @Get('returns')
+  async findAllReturns() {
+    return await this.ordersService.getAllReturns();
+  }
+
+  @Get(':id')
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return await this.ordersService.findOne(id);
   }
 }

@@ -180,6 +180,27 @@ export class ProductsService {
       message: 'تم إنشاء الصنف بنجاح',
     };
   }
+
+  async updateSortQtyOrders(sortId: string, newQty: number) {
+    const sort = await this.sortsRepo.findOne({
+      where: { id: sortId },
+      relations: ['product'],
+    });
+    if (!sort) throw new NotFoundException('النوع غير موجود');
+    try {
+      const productQty = sort.product.qty - sort.qty + newQty;
+      await this.productsRepo.save({
+        ...sort.product,
+        qty: productQty,
+      });
+      Object.assign(sort, { qty: newQty });
+      await this.sortsRepo.save(sort);
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerErrorException(ErrorMsg);
+    }
+  }
+
   async updateSort(sortId: string, updateSortDto: UpdateSortDto) {
     const sort = await this.sortsRepo.findOne({
       where: { id: sortId },
