@@ -21,7 +21,7 @@ import { AuthMiddleware } from './middlewares/auth.middleware';
         url: configService.get('DATABASE_URL'),
         migrations: [__dirname + '/migrations/*.{js,ts}'],
         autoLoadEntities: true,
-        synchronize: true,
+        synchronize: false,
       }),
       inject: [ConfigService],
     }),
