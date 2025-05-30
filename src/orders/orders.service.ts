@@ -16,6 +16,7 @@ import { ClientsService } from 'src/clients/clients.service';
 import { ProductsService } from 'src/products/products.service';
 import { ErrorMsg } from 'src/utils/base';
 import { ReturnEntity } from './entities/return.entity';
+import { ReturnsItemsEntity } from './entities/returns-items.entity';
 
 @Injectable()
 export class OrdersService {
@@ -28,6 +29,8 @@ export class OrdersService {
     private readonly paymentsRepo: Repository<PaymentsEntity>,
     @InjectRepository(ReturnEntity)
     private readonly returnRepo: Repository<ReturnEntity>,
+    @InjectRepository(ReturnsItemsEntity)
+    private readonly returnsItemsRepo: Repository<ReturnsItemsEntity>,
     private readonly clientsService: ClientsService,
     private readonly productsService: ProductsService,
   ) {}
@@ -45,17 +48,13 @@ export class OrdersService {
       throw new NotFoundException('Client not found.');
     }
     const parseData = JSON.parse(product_sorts);
-    if (!Array.isArray(parseData)) {
-      throw new BadRequestException('Product sort is not an array.');
-    }
-    if (parseData.length === 0) {
-      throw new BadRequestException('Product sort is empty.');
-    }
+
     const order = this.ordersRepo.create({
       client,
       total_price: 0,
       tax,
       discount,
+      short_id: `ORD-${await this.generateShortId()}`,
     });
     let savedOrder;
     try {
@@ -113,9 +112,10 @@ export class OrdersService {
     await this.paymentsRepo.save(payment);
 
     await this.ordersRepo.save({ ...savedOrder, total_price });
+    const finalOrder = await this.findOne(savedOrder.id);
     return {
       done: true,
-      message: 'تم إنشاء الطلب بنجاح',
+      order: finalOrder,
     };
   }
   async getAllOrders() {
@@ -135,13 +135,25 @@ export class OrdersService {
     const order = await this.ordersRepo
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.order_items', 'item')
+      .leftJoinAndSelect('order.payment', 'payment')
+      .leftJoinAndSelect('order.client', 'client')
+      .leftJoinAndSelect('order.return', 'return')
+      .loadRelationCountAndMap('return.return_count', 'return.returns_items')
       .leftJoinAndSelect('item.sort', 'sort')
       .leftJoinAndSelect('sort.product', 'product')
       .where('order.id = :id', { id })
       .select([
         'order.id',
+        'order.short_id',
         'order.total_price',
+        'order.tax',
+        'order.discount',
+        'return.id',
+        'payment.status',
+        'payment.payment_method',
         'order.created_at',
+        'client.id',
+        'client.user_name',
         'item.id',
         'item.qty',
         'item.unit_price',
@@ -151,6 +163,7 @@ export class OrdersService {
         'sort.color',
         'product.id',
         'product.name',
+        'product.material',
       ])
       .getOne();
 
@@ -186,74 +199,162 @@ export class OrdersService {
     };
   }
   //* ===================
-  async returnOneItem(itemId: string, qty: number, reason?: string) {
-    const item = await this.ItemsRepo.findOne({
-      where: { id: itemId },
-      relations: ['sort', 'order'],
+  // {
+  //       item_id: string;
+  //       qty: string;
+  //     }[]
+  async makeReturn(order_id: string, data: string) {
+    const order = await this.ordersRepo.findOne({
+      where: { id: order_id },
+      relations: ['return'],
     });
-    if (!item) throw new NotFoundException('الصنف المراد ارجاعه غير موجود.');
-    if (item.qty < qty)
-      throw new ConflictException(
-        'الكمية المراد ارجاعها اكبر من الكمية الفعلية للطلب.',
-      );
-    const itemReady = { ...item, qty: item.qty - qty };
-    const returnReady = this.returnRepo.create({
-      order_item: itemReady,
-      qty,
-      reason,
-    });
-    const totalPriceBefore = item.qty * item.unit_price;
-    const totalPriceForOrder =
-      item.order.total_price -
-      totalPriceBefore +
-      (item.qty - qty) * item.unit_price;
-    const updateOrder = {
-      ...item.order,
-      total_price: totalPriceForOrder,
-    };
+    if (!order) {
+      throw new NotFoundException('لا يوجد طلب بهذا المعرف.');
+    }
+    const parseData = JSON.parse(data);
+    let returnRecord = order.return;
+    if (!order.return) {
+      try {
+        const returnReady = this.returnRepo.create({
+          order,
+          short_id: `RET-${await this.generateShortId()}`,
+        });
+        const savedReturn = await this.returnRepo.save(returnReady);
+        order.return = savedReturn;
+        await this.ordersRepo.save(order);
+        returnRecord = savedReturn;
+      } catch (err) {
+        console.error(err);
+        throw new InternalServerErrorException(ErrorMsg);
+      }
+    }
+    let countLoseMoney = 0;
+    for (const item of parseData) {
+      const order_item = await this.ItemsRepo.findOne({
+        where: { id: item.item_id },
+        relations: ['sort'],
+      });
+      if (!order_item)
+        throw new NotFoundException(
+          `لا يوجد عنصر لطلب بهذا المعرف ${item.item_id}.`,
+        );
+      if (order_item.qty < item.qty)
+        throw new ConflictException(
+          `الكمية المراد ارجاعها لعنصر من العناصر اكبر من الكمية الفعلية.`,
+        );
+      const returnsItemsReady = this.returnsItemsRepo.create({
+        return: returnRecord,
+        qty: item.qty,
+        unit_price: order_item.unit_price,
+        order_item,
+      });
+      try {
+        await this.returnsItemsRepo.save(returnsItemsReady);
+        await this.ItemsRepo.save({
+          ...order_item,
+          qty: order_item.qty - item.qty,
+        });
+        await this.productsService.updateSortQtyOrders(
+          order_item.sort.id,
+          item.qty + order_item.sort.qty,
+        );
+        countLoseMoney += item.qty * Number(order_item.unit_price);
+      } catch (err) {
+        console.error(err);
+        throw new InternalServerErrorException(ErrorMsg);
+      }
+    }
     try {
-      await this.ordersRepo.save(updateOrder);
-      await this.ItemsRepo.save(itemReady);
-      await this.returnRepo.save(returnReady);
-      await this.productsService.updateSortQtyOrders(
-        item.sort.id,
-        qty + item.sort.qty,
-      );
+      console.log(countLoseMoney);
+      await this.ordersRepo.save({
+        ...order,
+        total_price: order.total_price - countLoseMoney,
+      });
     } catch (err) {
-      console.log(err);
+      console.error(err);
       throw new InternalServerErrorException(ErrorMsg);
     }
+    const updated_order = await this?.findOne(order_id);
+
     return {
       done: true,
-      message: 'تم تنفيذ الارجاع بنجاح.',
+      order: updated_order,
     };
   }
-  async getAllReturns(page: number = 1, limit: number = 1000) {
-    const [returns, total] = await this.returnRepo
+
+  async getAllReturn(
+    page: number = 1,
+    limit: number = 1000,
+    returnId?: string,
+  ) {
+    const builder = this.returnRepo
       .createQueryBuilder('return')
-      .leftJoinAndSelect('return.order_item', 'item')
-      .leftJoin('item.order', 'order')
-      .addSelect(['order.id'])
+
+      .leftJoin('return.order', 'order')
+      .addSelect(['order.id', 'order.tax', 'order.short_id'])
       .leftJoin('order.client', 'client')
       .addSelect(['client.id', 'client.user_name'])
-      .leftJoin('item.sort', 'sort')
-      .addSelect([
-        'sort.id',
-        'sort.name',
-        'sort.color',
-        'sort.size',
-        'sort.qty',
-      ])
-      .leftJoin('sort.product', 'product')
-      .addSelect(['product.id', 'product.name'])
+      .loadRelationCountAndMap(
+        'return.returns_items_count',
+        'return.returns_items',
+      )
+      .leftJoin('return.returns_items', 'ri')
+      .addSelect(['ri.id', 'ri.qty', 'ri.unit_price']);
+    if (returnId) {
+      builder.andWhere('return.id = :id', { id: returnId });
+    }
+    const [returns_items, total] = await builder
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
     return {
-      returns,
+      returns_items,
       total,
       page,
       limit,
     };
+  }
+
+  async findReturnsItems(id: string) {
+    const returnObj = await this.returnRepo
+      .createQueryBuilder('return')
+      .leftJoin('return.order', 'order')
+      .addSelect(['order.id', 'order.short_id'])
+      .leftJoin('order.client', 'client')
+      .addSelect(['client.id', 'client.user_name'])
+      .leftJoinAndSelect('return.returns_items', 'return_items')
+      .leftJoin('return_items.order_item', 'order_item')
+      .addSelect(['order_item.id', 'order_item.qty'])
+      .leftJoin('order_item.sort', 'sort')
+      .addSelect(['sort.id', 'sort.name', 'sort.color', 'sort.size'])
+      .leftJoin('sort.product', 'product')
+      .addSelect(['product.id', 'product.name', 'product.material'])
+      .where('return.id = :id', { id })
+      .getOne();
+
+    if (!returnObj) {
+      throw new NotFoundException('لا يوجد مرتجع بهذا المعرف.');
+    }
+    return returnObj;
+  }
+
+  async generateShortId() {
+    let shortId: string;
+    let exists = true;
+
+    while (exists) {
+      const random = Math.floor(100000 + Math.random() * 900000);
+      shortId = random.toString();
+
+      const existingReturn = await this.returnRepo.findOne({
+        where: { short_id: shortId },
+      });
+      const existingOrder = await this.ordersRepo.findOne({
+        where: { short_id: shortId },
+      });
+      exists = !!existingOrder && !!existingReturn;
+    }
+
+    return shortId;
   }
 }

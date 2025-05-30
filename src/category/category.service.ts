@@ -18,6 +18,7 @@ export class CategoryService {
     @InjectRepository(CategoriesEntity)
     private readonly CategoriesRepo: Repository<CategoriesEntity>,
   ) {}
+
   async create(createCategoryDto: CreateCategoryDto) {
     const exists = await this.CategoriesRepo.findOne({
       where: { name: createCategoryDto.name },
@@ -36,21 +37,23 @@ export class CategoryService {
       message: 'تم إنشاء الفئة بنجاح',
     };
   }
-  async findAll() {
-    const categories = await this.CategoriesRepo.createQueryBuilder('category')
+  async findAll(page: number = 1, limit: number = 50) {
+    const [categories, total] = await this.CategoriesRepo.createQueryBuilder(
+      'category',
+    )
       .loadRelationCountAndMap('category.products_count', 'category.products')
-      .getMany();
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
     return {
       categories,
-      total: categories.length,
+      total,
+      page: Number(page),
+      limit,
     };
   }
 
   async findOne(id: string) {
-    // const category = await this.CategoriesRepo.findOne({
-    //   where: { id },
-    //   relations: ['products'],
-    // });
     const category = await this.CategoriesRepo.createQueryBuilder('category')
       .andWhere('category.id = :id', { id })
       .leftJoinAndSelect('category.products', 'product')

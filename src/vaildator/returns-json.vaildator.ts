@@ -5,8 +5,8 @@ import {
 } from 'class-validator';
 import { isUUID } from 'class-validator';
 
-@ValidatorConstraint({ name: 'isValidProductSorts', async: false })
-export class IsValidProductSorts implements ValidatorConstraintInterface {
+@ValidatorConstraint({ name: 'isValidReturns', async: false })
+export class IsValidReturns implements ValidatorConstraintInterface {
   validate(value: string, args: ValidationArguments) {
     try {
       const parsed = JSON.parse(value);
@@ -14,9 +14,7 @@ export class IsValidProductSorts implements ValidatorConstraintInterface {
       if (parsed.length === 0) return false;
       return parsed.every((item: any) => {
         return (
-          isUUID(item.product_id) &&
-          typeof item.qty === 'number' &&
-          item.qty > 0
+          isUUID(item.item_id) && typeof item.qty === 'number' && item.qty > 0
         );
       });
     } catch (e) {
@@ -25,6 +23,6 @@ export class IsValidProductSorts implements ValidatorConstraintInterface {
   }
 
   defaultMessage(args: ValidationArguments) {
-    return 'product_sorts must be a valid JSON string containing an array of { product_id: UUID, qty: number }';
+    return 'Returns must be a valid JSON string containing an array of { item_id: UUID, qty: number }';
   }
 }

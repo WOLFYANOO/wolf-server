@@ -8,11 +8,11 @@ import {
   Delete,
   ParseUUIDPipe,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { AuthGuard } from 'src/guards/auth.guard';
 import { ReaderGuard } from 'src/guards/reader.guard';
 import { OwnerGuard } from 'src/guards/owner.guard';
 
@@ -28,8 +28,8 @@ export class CategoryController {
   }
 
   @Get()
-  async findAll() {
-    return await this.categoryService.findAll();
+  async findAll(@Query('page') page: number, @Query('limit') limit: number) {
+    return await this.categoryService.findAll(page, limit);
   }
 
   @Get(':id')

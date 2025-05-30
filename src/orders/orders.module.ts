@@ -8,6 +8,7 @@ import { PaymentsEntity } from './entities/payments.entity';
 import { ClientsModule } from 'src/clients/clients.module';
 import { ProductsModule } from 'src/products/products.module';
 import { ReturnEntity } from './entities/return.entity';
+import { ReturnsItemsEntity } from './entities/returns-items.entity';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ReturnEntity } from './entities/return.entity';
       OrderItemsEntity,
       PaymentsEntity,
       ReturnEntity,
+      ReturnsItemsEntity,
     ]),
     ClientsModule,
     ProductsModule,

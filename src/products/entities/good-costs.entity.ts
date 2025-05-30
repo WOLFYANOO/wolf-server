@@ -12,7 +12,8 @@ import { ProductSortsEntity } from './product-sort.entity';
 export class CostsEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
+  @Column({ unique: true })
+  short_id: string;
   @Column({ type: 'int' })
   qty: number;
   @Column({ type: 'decimal' })

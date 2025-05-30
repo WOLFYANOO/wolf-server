@@ -142,15 +142,19 @@ export class ProductsService {
       where: { id: productId },
       relations: ['sorts'],
     });
-    if (!product) throw new NotFoundException('المنتج غير موجود');
+    if (!product) throw new NotFoundException('المنتج غير موجود.');
     if (
       product.sorts?.some(
         (sort) =>
-          sort.color.trim() === createSortDto.color.trim() &&
-          sort.size.trim() === createSortDto.size.trim() &&
-          sort.name.trim() === createSortDto.name.trim(),
+          sort.color.trim().toLowerCase() ===
+            createSortDto.color.trim().toLowerCase() &&
+          sort.size.trim().toLowerCase() ===
+            createSortDto.size.trim().toLowerCase() &&
+          sort.name.trim().toLowerCase() ===
+            createSortDto.name.trim().toLowerCase(),
       )
     ) {
+      console.log('ooooooo');
       throw new ConflictException('هذا الصنف موجود بالفعل');
     }
 
@@ -169,6 +173,7 @@ export class ProductsService {
         sort: savedSort,
         qty: createSortDto.qty,
         price: createSortDto.costPrice,
+        short_id: `COS-${await this.generateShortId()}`,
       });
       await this.costsRepo.save(costsRepo);
     } catch (error) {
@@ -238,6 +243,7 @@ export class ProductsService {
           sort,
           qty: newQty,
           price: updateSortDto.costPrice,
+          short_id: `COS-${await this.generateShortId()}`,
         });
         await this.costsRepo.save(newCost);
       }
@@ -300,5 +306,21 @@ export class ProductsService {
       page,
       limit,
     };
+  }
+  async generateShortId() {
+    let shortId: string;
+    let exists = true;
+
+    while (exists) {
+      const random = Math.floor(100000 + Math.random() * 900000);
+      shortId = random.toString();
+
+      const existingCost = await this.costsRepo.findOne({
+        where: { short_id: shortId },
+      });
+      exists = !!existingCost;
+    }
+
+    return shortId;
   }
 }

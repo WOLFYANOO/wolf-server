@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { OrdersEntity } from './order.entity';
 import { ProductSortsEntity } from 'src/products/entities/product-sort.entity';
-import { ReturnEntity } from './return.entity';
+import { ReturnsItemsEntity } from './returns-items.entity';
 
 @Entity({ name: 'order_items' })
 export class OrderItemsEntity {
@@ -25,6 +25,6 @@ export class OrderItemsEntity {
 
   @Column({ type: 'decimal' })
   unit_price: number;
-  @OneToMany(() => ReturnEntity, (returns) => returns.order_item)
-  return: ReturnEntity;
+  @OneToMany(() => ReturnsItemsEntity, (ret) => ret.order_item)
+  returns_items: ReturnsItemsEntity;
 }

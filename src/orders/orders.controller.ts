@@ -10,7 +10,6 @@ import {
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { AuthGuard } from 'src/guards/auth.guard';
 import { ReaderGuard } from 'src/guards/reader.guard';
 import { OwnerGuard } from 'src/guards/owner.guard';
 import { ReturnDto } from './dto/return.dto';
@@ -39,17 +38,25 @@ export class OrdersController {
   ) {
     return await this.ordersService.updateOrder(id, updateOrderDto);
   }
-  @Post('returns/:itemId')
+  @Post('returns/:orderId')
   @UseGuards(OwnerGuard)
-  async returnOrder(
-    @Param('itemId', new ParseUUIDPipe()) itemId: string,
-    @Body() { reason, qty }: ReturnDto,
+  async makeReturn(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Body() { returns }: ReturnDto,
   ) {
-    return await this.ordersService.returnOneItem(itemId, qty, reason);
+    return await this.ordersService.makeReturn(orderId, returns);
   }
   @Get('returns')
   async findAllReturns() {
-    return await this.ordersService.getAllReturns();
+    return await this.ordersService.getAllReturn();
+  }
+  @Get('returns/:id')
+  async findOrderReturns(@Param('id', new ParseUUIDPipe()) id: string) {
+    return await this.ordersService.getAllReturn(undefined, undefined, id);
+  }
+  @Get('returns/returns-items/:id')
+  async findReturnsItems(@Param('id', new ParseUUIDPipe()) id: string) {
+    return await this.ordersService.findReturnsItems(id);
   }
 
   @Get(':id')

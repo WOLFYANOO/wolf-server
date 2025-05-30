@@ -1,10 +1,8 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, Validate } from 'class-validator';
+import { IsValidReturns } from 'src/vaildator/returns-json.vaildator';
 
 export class ReturnDto {
-  @IsNumber()
   @IsNotEmpty()
-  qty: number;
-  @IsString()
-  @IsOptional()
-  reason: string;
+  @Validate(IsValidReturns)
+  returns: string;
 }

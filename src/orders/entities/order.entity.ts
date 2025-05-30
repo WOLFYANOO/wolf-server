@@ -11,12 +11,14 @@ import {
 } from 'typeorm';
 import { OrderItemsEntity } from './order-items.entity';
 import { PaymentsEntity } from './payments.entity';
+import { ReturnEntity } from './return.entity';
 
 @Entity({ name: 'orders' })
 export class OrdersEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
+  @Column({ unique: true })
+  short_id: string;
   @ManyToOne(() => ClientsEntity, (client) => client.orders)
   client: ClientsEntity;
 
@@ -35,6 +37,12 @@ export class OrdersEntity {
   @OneToOne(() => PaymentsEntity, (payment) => payment.order)
   @JoinColumn()
   payment: PaymentsEntity;
+
+  @OneToOne(() => ReturnEntity, (ret) => ret.order, {
+    cascade: true,
+  })
+  @JoinColumn()
+  return: ReturnEntity;
 
   @CreateDateColumn()
   created_at: Date;
