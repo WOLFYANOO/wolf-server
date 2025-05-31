@@ -1,11 +1,4 @@
-import {
-  IsNotEmpty,
-  IsString,
-  IsUUID,
-  IsOptional,
-  IsNumber,
-  Min,
-} from 'class-validator';
+import { IsNotEmpty, IsString, IsUUID, IsOptional } from 'class-validator';
 
 export class CreateProductDto {
   @IsNotEmpty()

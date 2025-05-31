@@ -27,6 +27,10 @@ export class ProductsController {
   async create(@Body() createProductDto: CreateProductDto) {
     return await this.productsService.create(createProductDto);
   }
+  @Get('initialData')
+  async inialdata() {
+    return await this.productsService.initailData();
+  }
   @Get()
   async findAll() {
     return await this.productsService.findAll();

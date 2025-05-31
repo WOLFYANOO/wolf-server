@@ -16,6 +16,7 @@ import { CreateSortDto } from './dto/create-sort.dto';
 import { UpdateSortDto } from './dto/update-sorts.dto';
 import { CustomProductSortsInterface } from 'src/types/interfaces/user.interface';
 import { CostsEntity } from './entities/good-costs.entity';
+import { cat, items, products } from 'src/initailData';
 
 @Injectable()
 export class ProductsService {
@@ -154,7 +155,6 @@ export class ProductsService {
             createSortDto.name.trim().toLowerCase(),
       )
     ) {
-      console.log('ooooooo');
       throw new ConflictException('هذا الصنف موجود بالفعل');
     }
 
@@ -178,7 +178,8 @@ export class ProductsService {
       await this.costsRepo.save(costsRepo);
     } catch (error) {
       console.error(error);
-      throw new InternalServerErrorException(ErrorMsg);
+      console.log('internal server error');
+      // throw new InternalServerErrorException(ErrorMsg);
     }
     return {
       done: true,
@@ -322,5 +323,50 @@ export class ProductsService {
     }
 
     return shortId;
+  }
+
+  async initailData() {
+    // cats
+    for (const c of cat) {
+      await this.categoriesRepo.save({
+        name: c,
+      });
+    }
+    // products
+    for (const product of products) {
+      const category = await this.categoriesRepo.findOne({
+        where: {
+          name: product.category,
+        },
+      });
+      await this.create({
+        name: product.title,
+        categoryId: category.id,
+        material: 'مجهول',
+      });
+    }
+    // sorts
+    const problems = [];
+    for (const sort of items) {
+      const product = await this.productsRepo.findOne({
+        where: {
+          name: sort.title.split(' ')[0],
+        },
+      });
+      if (product) {
+        await this.createSort(product.id, {
+          size: 'مجهول',
+          name: sort.title,
+          qty: sort.qty,
+          costPrice: sort.qty * sort.cost_price,
+          price: sort.qty * sort.sell_price,
+          color: '',
+        });
+      } else {
+        problems.push(sort);
+      }
+    }
+    console.log('problems => ', problems);
+    console.log(items.length);
   }
 }
