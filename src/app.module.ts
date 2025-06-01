@@ -22,7 +22,7 @@ import { CommonModule } from './common/common.module';
         url: configService.get('DATABASE_URL'),
         migrations: [__dirname + '/migrations/*.{js,ts}'],
         autoLoadEntities: true,
-        synchronize: false,
+        synchronize: true,
       }),
       inject: [ConfigService],
     }),
