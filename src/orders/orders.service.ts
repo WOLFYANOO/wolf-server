@@ -17,6 +17,7 @@ import { ProductsService } from 'src/products/products.service';
 import { ErrorMsg } from 'src/utils/base';
 import { ReturnEntity } from './entities/return.entity';
 import { ReturnsItemsEntity } from './entities/returns-items.entity';
+import { PaidStatusEnum } from 'src/types/enums/product.enum';
 
 @Injectable()
 export class OrdersService {
@@ -199,10 +200,6 @@ export class OrdersService {
     };
   }
   //* ===================
-  // {
-  //       item_id: string;
-  //       qty: string;
-  //     }[]
   async makeReturn(order_id: string, data: string) {
     const order = await this.ordersRepo.findOne({
       where: { id: order_id },
@@ -356,5 +353,53 @@ export class OrdersService {
     }
 
     return shortId;
+  }
+
+  async calcReturns() {
+    const [retItems, total] = await this.returnsItemsRepo
+      .createQueryBuilder('retItem')
+      .select(['retItem.id', 'retItem.qty', 'retItem.unit_price'])
+      .getManyAndCount();
+    let totalReturnsPrices = 0;
+    for (const ret of retItems) {
+      totalReturnsPrices += ret.unit_price * ret.qty;
+    }
+    return { totalReturnsPrices, total };
+  }
+
+  async calcEarnings() {
+    const [orders, countDoneEarning] = await this.ordersRepo
+      .createQueryBuilder('order')
+      .leftJoin('order.payment', 'payment')
+      .where('payment.status = :status', { status: PaidStatusEnum.PAID })
+      .select(['order.id', 'order.total_price', 'order.tax', 'order.discount'])
+      .getManyAndCount();
+
+    const [notCompletedorders, notCompletedEarning] = await this.ordersRepo
+      .createQueryBuilder('order')
+      .leftJoin('order.payment', 'payment')
+      .where('payment.status = :status', { status: PaidStatusEnum.PENDING })
+      .select(['order.id', 'order.total_price', 'order.tax', 'order.discount'])
+      .getManyAndCount();
+
+    return {
+      paidOrders: await this.countForOrders(orders),
+      countPaidOrders: countDoneEarning,
+      notPaidOrders: await this.countForOrders(notCompletedorders),
+      countNotPaidOrders: notCompletedEarning,
+    };
+  }
+  async countForOrders(orders: OrdersEntity[]) {
+    let total = 0;
+    for (const order of orders) {
+      const totalPriceAfter =
+        order.total_price *
+          (order.tax && order.tax !== ''
+            ? Number(order.tax.slice(0, 2)) / 100 + 1
+            : 1) -
+        order.discount;
+      total += totalPriceAfter;
+    }
+    return total;
   }
 }

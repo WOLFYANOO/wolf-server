@@ -21,7 +21,6 @@ import { OwnerGuard } from 'src/guards/owner.guard';
 @UseGuards(ReaderGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
-
   @Post()
   @UseGuards(OwnerGuard)
   async create(@Body() createProductDto: CreateProductDto) {

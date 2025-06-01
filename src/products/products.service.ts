@@ -186,7 +186,6 @@ export class ProductsService {
       message: 'تم إنشاء الصنف بنجاح',
     };
   }
-
   async updateSortQtyOrders(sortId: string, newQty: number) {
     const sort = await this.sortsRepo.findOne({
       where: { id: sortId },
@@ -206,7 +205,6 @@ export class ProductsService {
       throw new InternalServerErrorException(ErrorMsg);
     }
   }
-
   async updateSort(sortId: string, updateSortDto: UpdateSortDto) {
     const sort = await this.sortsRepo.findOne({
       where: { id: sortId },
@@ -324,7 +322,6 @@ export class ProductsService {
 
     return shortId;
   }
-
   async initailData() {
     // cats
     for (const c of cat) {
@@ -368,5 +365,99 @@ export class ProductsService {
     }
     console.log('problems => ', problems);
     console.log(items.length);
+  }
+  async calcCurrentInventoryCost() {
+    const sorts = await this.sortsRepo.find({
+      relations: ['costs'],
+      order: { costs: { created_at: 'DESC' } },
+    });
+    let totalCostsPrice = 0;
+    for (const sort of sorts) {
+      totalCostsPrice = await this.calcOneSortInventoryCost(sort);
+    }
+    return { totalCostsPrice };
+  }
+  async calcOneSortInventoryCost(sort: ProductSortsEntity) {
+    let sortQty = sort.qty;
+    let totalCostPrice = 0;
+    for (const cost of sort.costs) {
+      if (sortQty > 0) {
+        const costUnitPrice = cost.price / cost.qty;
+        let appliedQty = cost.qty;
+        if (sortQty > cost.qty) {
+          sortQty -= cost.qty;
+        } else {
+          appliedQty = sortQty;
+          sortQty = 0;
+        }
+        totalCostPrice += costUnitPrice * appliedQty;
+      } else {
+        break;
+      }
+    }
+    return totalCostPrice;
+  }
+  async calcCurrentInventoryPrices() {
+    const sorts = await this.sortsRepo
+      .createQueryBuilder('sort')
+      .where('sort.qty > 0')
+      .select(['sort.id', 'sort.price', 'sort.qty'])
+      .getMany();
+    let totalSortsPrices = 0;
+    for (const sort of sorts) {
+      totalSortsPrices += sort.price * sort.qty;
+    }
+    return { totalSortsPrices };
+  }
+  async searchEngine(searchin: 'products' | 'sorts', searchwith: string) {
+    if (searchin === 'sorts') {
+      const query = this.sortsRepo
+        .createQueryBuilder('sort')
+        .leftJoin('sort.product', 'product')
+        .leftJoin('product.category', 'category')
+        .addSelect(['product.id', 'product.name', 'product.material'])
+        .addSelect(['category.id', 'category.name'])
+        .where('sort.name ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('sort.name ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('sort.color ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('sort.color ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('sort.size ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('sort.size ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('product.name ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('product.name ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('product.material ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('product.material ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('category.name ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('category.name ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        });
+
+      const [results, total] = await query.getManyAndCount();
+      return { results, total };
+    }
+
+    return { message: 'نوع البحث غير مدعوم حالياً إلا لـ sorts' };
   }
 }

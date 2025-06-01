@@ -304,12 +304,14 @@ export const items = [
   { title: 'سيفتي بيزول', qty: 2, sell_price: 2500, cost_price: 1500 },
 ];
 /*
+{ title: 'طقم امني قميص وبنطلون', qty: 1, sell_price: 500, cost_price: 400 },
+ 
   { title: 'بكرة احترس منطقه عمل', qty: 24, sell_price: 100, cost_price: 65 },
 
   { title: 'بكرة صرف صحي', qty: 20, sell_price: 110, cost_price: 65 },
+
   { title: 'بكرة سلك جنزير صغير', qty: 2, sell_price: 500, cost_price: 350 },
   { title: 'عصا مرور', qty: 3, sell_price: 180, cost_price: 130 },
-  { title: 'طقم امني قميص وبنطلون', qty: 1, sell_price: 500, cost_price: 400 },
   {
     title: 'شريط تحزير احمر في ابيض بلاستك',
     qty: 1,

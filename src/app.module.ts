@@ -8,6 +8,7 @@ import { CategoryModule } from './category/category.module';
 import { OrdersModule } from './orders/orders.module';
 import { ProductsModule } from './products/products.module';
 import { AuthMiddleware } from './middlewares/auth.middleware';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AuthMiddleware } from './middlewares/auth.middleware';
     CategoryModule,
     OrdersModule,
     ProductsModule,
+    CommonModule,
   ],
 })
 export class AppModule implements NestModule {
