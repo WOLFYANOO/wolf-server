@@ -356,7 +356,7 @@ export class ProductsService {
           name: sort.title,
           qty: sort.qty,
           costPrice: sort.qty * sort.cost_price,
-          price: sort.qty * sort.sell_price,
+          price: sort.sell_price,
           color: '',
         });
       } else {
@@ -373,11 +373,11 @@ export class ProductsService {
     });
     let totalCostsPrice = 0;
     for (const sort of sorts) {
-      totalCostsPrice = await this.calcOneSortInventoryCost(sort);
+      totalCostsPrice = this.calcOneSortInventoryCost(sort);
     }
     return { totalCostsPrice };
   }
-  async calcOneSortInventoryCost(sort: ProductSortsEntity) {
+  calcOneSortInventoryCost(sort: ProductSortsEntity) {
     let sortQty = sort.qty;
     let totalCostPrice = 0;
     for (const cost of sort.costs) {
