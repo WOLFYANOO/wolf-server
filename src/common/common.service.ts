@@ -13,14 +13,16 @@ export class CommonService {
     private readonly ordersService: OrdersService,
   ) {}
   async searchEngine(searchin: string, searchwith: string) {
+    const repos = ['sorts', 'products'];
     if (!searchin || searchin === '') {
       throw new BadRequestException('يجب اختيار المستودع المطلب البحث به.');
     }
     let service;
-    if (searchin === 'sorts') {
-      service = this.productsService;
-    } else {
+    if (!repos.includes(searchin)) {
       throw new ConflictException('لا يوجد مستودع بهذا الاسم.');
+    }
+    if (searchin === 'sorts' || searchin === 'products') {
+      service = this.productsService;
     }
     return service.searchEngine(searchin, searchwith);
   }

@@ -338,4 +338,3 @@ export const items = [
     cost_price: 100,
   },
   */
-//! { title: 'اوفرهيد كيس', qty: 85, sell_price: 40, cost_price: 30 }

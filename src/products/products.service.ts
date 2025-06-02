@@ -367,17 +367,20 @@ export class ProductsService {
     console.log(items.length);
   }
   async calcCurrentInventoryCost() {
-    const sorts = await this.sortsRepo.find({
-      relations: ['costs'],
-      order: { costs: { created_at: 'DESC' } },
-    });
+    const sorts = await this.sortsRepo
+      .createQueryBuilder('sort')
+      .leftJoin('sort.costs', 'cost')
+      .select(['sort.id', 'sort.qty', 'cost.id', 'cost.qty', 'cost.price'])
+      .orderBy('cost.created_at', 'ASC')
+      .getMany();
     let totalCostsPrice = 0;
     for (const sort of sorts) {
-      totalCostsPrice = this.calcOneSortInventoryCost(sort);
+      totalCostsPrice += this.calcOneSortInventoryCost(sort);
     }
     return { totalCostsPrice };
   }
   calcOneSortInventoryCost(sort: ProductSortsEntity) {
+    console.log(sort);
     let sortQty = sort.qty;
     let totalCostPrice = 0;
     for (const cost of sort.costs) {
@@ -456,8 +459,56 @@ export class ProductsService {
 
       const [results, total] = await query.getManyAndCount();
       return { results, total };
+    } else if (searchin === 'products') {
+      const query = this.productsRepo
+        .createQueryBuilder('product')
+        .leftJoin('product.category', 'cat')
+        .loadRelationCountAndMap('product.sorts_count', 'product.sorts')
+        .select([
+          'product.id',
+          'product.name',
+          'product.created_at',
+          'product.updated_at',
+          'product.material',
+          'product.desc',
+          'product.note',
+          'cat.id',
+          'cat.name',
+        ])
+        .where('product.name ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('product.name ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('product.desc ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('product.desc ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('product.material ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('product.material ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('product.note ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('product.note ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('cat.name ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .orWhere('cat.name ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        });
+      const [results, total] = await query.getManyAndCount();
+      return { results, total };
     }
 
-    return { message: 'نوع البحث غير مدعوم حالياً إلا لـ sorts' };
+    throw new ConflictException('البحث غير مدعوم لهذه الفئة.');
   }
 }
