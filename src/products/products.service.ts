@@ -467,13 +467,14 @@ export class ProductsService {
         .select([
           'product.id',
           'product.name',
-          'product.created_at',
-          'product.updated_at',
-          'product.material',
           'product.desc',
-          'product.note',
           'cat.id',
           'cat.name',
+          'product.qty',
+          'product.material',
+          'product.note',
+          'product.created_at',
+          'product.updated_at',
         ])
         .where('product.name ILIKE :termStart', {
           termStart: `${searchwith.toLowerCase()}%`,
