@@ -18,8 +18,9 @@ export class CommonController {
   async searchEngine(
     @Query('searchin') searchin: string,
     @Query('searchwith') searchwith: string,
+    @Query('column') column: string,
   ) {
-    return await this.commonService.searchEngine(searchin, searchwith);
+    return await this.commonService.searchEngine(searchin, searchwith, column);
   }
   @Get('calcs')
   async getAllCalcs() {

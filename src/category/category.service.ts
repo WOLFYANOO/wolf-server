@@ -52,7 +52,6 @@ export class CategoryService {
       limit,
     };
   }
-
   async findOne(id: string) {
     const category = await this.CategoriesRepo.createQueryBuilder('category')
       .andWhere('category.id = :id', { id })
@@ -63,7 +62,6 @@ export class CategoryService {
 
     return category;
   }
-
   async update(id: string, updateCategoryDto: UpdateCategoryDto) {
     const category = await this.CategoriesRepo.findOne({ where: { id } });
     if (!category) throw new NotFoundException('الفئة غير موجودة');
@@ -87,19 +85,60 @@ export class CategoryService {
       message: 'تم تحديث الفئة بنجاح',
     };
   }
-
   async delete(id: string) {
     const category = await this.CategoriesRepo.findOne({
       where: { id },
       relations: ['products'],
     });
     if (!category) throw new NotFoundException('الفئة غير موجودة');
-
     if (category.products && category.products.length > 0) {
       throw new BadRequestException('لا يمكن حذف الفئة لوجود منتجات تابعة لها');
     }
-
     await this.CategoriesRepo.remove(category);
     return { done: true, message: 'تم حذف الفئة بنجاح' };
+  }
+  async searchEngine(
+    searchin: 'categories',
+    searchwith: string,
+    column?: string,
+  ) {
+    if (searchin === 'categories') {
+      const columns = ['category.name', 'category.desc'];
+      if (column && !columns.includes(column)) {
+        throw new ConflictException('لا يوجد عمود بهذا الاسم');
+      }
+      const query = this.CategoriesRepo.createQueryBuilder(
+        'category',
+      ).loadRelationCountAndMap('category.products_count', 'category.products');
+
+      if (column) {
+        query
+          .where(`${column} ILIKE :termStart`, {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`${column} ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      } else {
+        query
+          .where('category.name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('category.name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('category.desc ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('category.desc ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      }
+
+      const [results, total] = await query.getManyAndCount();
+      return { results, total };
+    }
+
+    throw new ConflictException('البحث غير مدعوم لهذه الفئة.');
   }
 }

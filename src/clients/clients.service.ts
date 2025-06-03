@@ -167,4 +167,48 @@ export class ClientsService {
       relations,
     });
   }
+  async searchEngine(searchin: 'clients', searchwith: string, column?: string) {
+    if (searchin === 'clients') {
+      const columns = ['client.user_name', 'client.tax_num'];
+      if (column && !columns.includes(column)) {
+        throw new ConflictException('لا يوجد عمود بهذا الاسم');
+      }
+      const query = this.clientsRepo
+        .createQueryBuilder('client')
+        .loadRelationCountAndMap('client.orders_count', 'client.orders')
+        .loadRelationCountAndMap('client.contacts_count', 'client.contacts')
+        .loadRelationCountAndMap(
+          'client.addresses_count',
+          'client.shipping_addresses',
+        );
+      if (column) {
+        query
+          .where(`${column} ILIKE :termStart`, {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`${column} ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+        const [results, total] = await query.getManyAndCount();
+        return { results, total };
+      } else {
+        query
+          .where(`client.user_name ILIKE :termStart`, {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`client.user_name ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere(`client.tax_num ILIKE :termStart`, {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`client.tax_num ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+        const [results, total] = await query.getManyAndCount();
+        return { results, total };
+      }
+    }
+    throw new ConflictException('البحث غير مدعوم لهذه الفئة.');
+  }
 }

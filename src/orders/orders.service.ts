@@ -355,6 +355,92 @@ export class OrdersService {
     return shortId;
   }
 
+  async searchEngine(
+    searchin: 'orders' | 'returns',
+    searchwith: string,
+    column?: string,
+  ) {
+    if (searchin === 'orders') {
+      const columns = ['order.short_id', 'client.user_name'];
+      if (column && !columns.includes(column)) {
+        throw new ConflictException('لا يوجد عمود بهذا الاسم');
+      }
+      const query = this.ordersRepo
+        .createQueryBuilder('order')
+        .leftJoin('order.client', 'client')
+        .addSelect(['client.id', 'client.user_name'])
+        .leftJoin('order.payment', 'payment')
+        .addSelect(['payment.id', 'payment.status', 'payment.payment_method']);
+      if (column) {
+        query
+          .where(`${column} ILIKE :termStart`, {
+            termStart: `${column === 'order.short_id' ? 'ORD-' : ''}${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`${column} ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      } else {
+        query
+          .where('order.short_id ILIKE :full', {
+            full: `ORD-${searchwith}%`,
+          })
+          .orWhere('order.short_id ILIKE :termEnd', {
+            termEnd: `%${searchwith}`,
+          })
+          .orWhere('client.user_name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('client.user_name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      }
+
+      const [results, total] = await query.getManyAndCount();
+      return { results, total };
+    } else if (searchin === 'returns') {
+      const columns = ['return.short_id', 'client.user_name'];
+      if (column && !columns.includes(column)) {
+        throw new ConflictException('لا يوجد عمود بهذا الاسم');
+      }
+      const query = this.returnRepo
+        .createQueryBuilder('return')
+        .loadRelationCountAndMap(
+          'return.returns_items_count',
+          'return.returns_items',
+        )
+        .leftJoin('return.order', 'order')
+        .addSelect(['order.id', 'order.short_id'])
+        .leftJoin('order.client', 'client')
+        .addSelect(['client.id', 'client.user_name']);
+      if (column) {
+        query
+          .where(`${column} ILIKE :termStart`, {
+            termStart: `${column === 'return.short_id' ? 'RET-' : ''}${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`${column} ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      } else {
+        query
+          .where('return.short_id ILIKE :full', {
+            full: `RET-${searchwith}%`,
+          })
+          .orWhere('return.short_id ILIKE :termEnd', {
+            termEnd: `%${searchwith}`,
+          })
+          .orWhere('client.user_name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('client.user_name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      }
+      const [results, total] = await query.getManyAndCount();
+      return { results, total };
+    }
+    throw new ConflictException('البحث غير مدعوم لهذه الفئة.');
+  }
+
   async calcReturns() {
     const [retItems, total] = await this.returnsItemsRepo
       .createQueryBuilder('retItem')

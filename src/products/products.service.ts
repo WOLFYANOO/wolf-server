@@ -412,54 +412,90 @@ export class ProductsService {
     }
     return { totalSortsPrices };
   }
-  async searchEngine(searchin: 'products' | 'sorts', searchwith: string) {
+  async searchEngine(
+    searchin: 'products' | 'sorts' | 'costs',
+    searchwith: string,
+    column?: string,
+  ) {
     if (searchin === 'sorts') {
+      const columns = [
+        'sort.name',
+        'sort.color',
+        'sort.size',
+        'product.name',
+        'product.material',
+        'category.name',
+      ];
+      if (column && !columns.includes(column)) {
+        throw new ConflictException('لا يوجد عمود بهذا الاسم');
+      }
       const query = this.sortsRepo
         .createQueryBuilder('sort')
         .leftJoin('sort.product', 'product')
         .leftJoin('product.category', 'category')
         .addSelect(['product.id', 'product.name', 'product.material'])
-        .addSelect(['category.id', 'category.name'])
-        .where('sort.name ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('sort.name ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('sort.color ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('sort.color ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('sort.size ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('sort.size ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('product.name ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('product.name ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('product.material ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('product.material ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('category.name ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('category.name ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        });
+        .addSelect(['category.id', 'category.name']);
+      if (column) {
+        query
+          .where(`${column} ILIKE :termStart`, {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`${column} ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      } else {
+        query
+          .where('sort.name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('sort.name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('sort.color ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('sort.color ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('sort.size ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('sort.size ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('product.name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('product.name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('product.material ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('product.material ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('category.name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('category.name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      }
 
       const [results, total] = await query.getManyAndCount();
       return { results, total };
     } else if (searchin === 'products') {
+      const columns = [
+        'product.name',
+        'product.desc',
+        'cat.name',
+        'product.material',
+        'product.note',
+      ];
+      if (column && !columns.includes(column)) {
+        throw new ConflictException('لا يوجد عمود بهذا الاسم');
+      }
       const query = this.productsRepo
         .createQueryBuilder('product')
         .leftJoin('product.category', 'cat')
@@ -475,37 +511,121 @@ export class ProductsService {
           'product.note',
           'product.created_at',
           'product.updated_at',
-        ])
-        .where('product.name ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('product.name ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('product.desc ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('product.desc ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('product.material ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('product.material ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('product.note ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('product.note ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        })
-        .orWhere('cat.name ILIKE :termEnd', {
-          termEnd: `%${searchwith.toLowerCase()}`,
-        })
-        .orWhere('cat.name ILIKE :termStart', {
-          termStart: `${searchwith.toLowerCase()}%`,
-        });
+        ]);
+
+      if (column) {
+        query
+          .where(`${column} ILIKE :termStart`, {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`${column} ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      } else {
+        query
+          .where('product.name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('product.name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('product.desc ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('product.desc ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('product.material ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('product.material ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('product.note ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('product.note ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('cat.name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('cat.name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          });
+      }
+      const [results, total] = await query.getManyAndCount();
+      return { results, total };
+    } else if (searchin === 'costs') {
+      const columns = [
+        'cost.short_id',
+        'product.name',
+        'sort.name',
+        'sort.color',
+        'sort.size',
+      ];
+      if (column && !columns.includes(column)) {
+        throw new ConflictException('لا يوجد عمود بهذا الاسم');
+      }
+      const query = this.costsRepo
+        .createQueryBuilder('cost')
+        .leftJoin('cost.sort', 'sort')
+        .leftJoin('sort.product', 'product')
+        .select([
+          'cost.id',
+          'cost.short_id',
+          'cost.qty',
+          'cost.price',
+          'cost.created_at',
+          'cost.updated_at',
+          'sort.id',
+          'sort.name',
+          'sort.color',
+          'sort.size',
+          'product.id',
+          'product.name',
+        ]);
+      if (column) {
+        query
+          .where(`${column} ILIKE :termStart`, {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`${column} ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      } else {
+        query
+          .where(`cost.short_id ILIKE :termStart`, {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere(`cost.short_id ILIKE :termEnd`, {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('product.name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('product.name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('sort.name ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('sort.name ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('sort.color ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('sort.color ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          })
+          .orWhere('sort.size ILIKE :termStart', {
+            termStart: `${searchwith.toLowerCase()}%`,
+          })
+          .orWhere('sort.size ILIKE :termEnd', {
+            termEnd: `%${searchwith.toLowerCase()}`,
+          });
+      }
       const [results, total] = await query.getManyAndCount();
       return { results, total };
     }

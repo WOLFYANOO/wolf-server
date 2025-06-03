@@ -14,7 +14,6 @@ import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
-import { AuthGuard } from 'src/guards/auth.guard';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { ReaderGuard } from 'src/guards/reader.guard';
 import { OwnerGuard } from 'src/guards/owner.guard';

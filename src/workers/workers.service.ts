@@ -224,6 +224,33 @@ export class WorkersService {
       relations,
     });
   }
+
+  async searchEngine(searchin: 'workers', searchwith: string) {
+    if (searchin === 'workers') {
+      const [results, total] = await this.workersRepo
+        .createQueryBuilder('worker')
+        .loadRelationCountAndMap('worker.contacts_count', 'worker.contacts')
+        .select([
+          'worker.id',
+          'worker.user_name',
+          'worker.role',
+          'worker.is_banned',
+          'worker.banned_reason',
+          'worker.created_at',
+          'worker.updated_at',
+        ])
+        .where('worker.user_name ILIKE :termStart', {
+          termStart: `${searchwith.toLowerCase()}%`,
+        })
+        .orWhere('worker.user_name ILIKE :termEnd', {
+          termEnd: `%${searchwith.toLowerCase()}`,
+        })
+        .getManyAndCount();
+      return { results, total };
+    }
+    throw new ConflictException('البحث غير مدعوم لهذه الفئة.');
+  }
+
   private async findWorkerByName(
     user_name: string,
     needContacts: boolean = false,
