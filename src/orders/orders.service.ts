@@ -14,7 +14,7 @@ import { OrderItemsEntity } from './entities/order-items.entity';
 import { PaymentsEntity } from './entities/payments.entity';
 import { ClientsService } from 'src/clients/clients.service';
 import { ProductsService } from 'src/products/products.service';
-import { ErrorMsg } from 'src/utils/base';
+import { ErrorMsg, StartYear } from 'src/utils/base';
 import { ReturnEntity } from './entities/return.entity';
 import { ReturnsItemsEntity } from './entities/returns-items.entity';
 import { PaidStatusEnum } from 'src/types/enums/product.enum';
@@ -79,13 +79,13 @@ export class OrdersService {
         await this.ordersRepo.delete({ id: savedOrder.id });
         throw new ConflictException('Product sort is not enough.');
       }
-      total_price += +productSort.price * item.qty;
+      total_price += +productSort.unit_price * item.qty;
       orderItemsPrepare.push({
         product: productSort.product,
         sort: productSort,
         qty: item.qty,
         order,
-        unit_price: productSort.price,
+        unit_price: productSort.unit_price,
       });
     }
     if (
@@ -98,11 +98,19 @@ export class OrdersService {
       );
     }
     for (const item of orderItemsPrepare) {
+      const totalCostForItem = this.productsService.countCostPriceForOrder(
+        item.sort,
+        item.qty,
+      );
+      console.log('totalCostForItem => ', totalCostForItem);
       await this.productsService.updateSortQtyOrders(
         item.sort.id,
         item.sort.qty - item.qty,
       );
-      const orderItem = this.ItemsRepo.create(item);
+      const orderItem = this.ItemsRepo.create({
+        ...item,
+        total_cost_price: totalCostForItem,
+      });
       await this.ItemsRepo.save(orderItem);
     }
     const payment = this.paymentsRepo.create({
@@ -262,7 +270,6 @@ export class OrdersService {
       }
     }
     try {
-      console.log(countLoseMoney);
       await this.ordersRepo.save({
         ...order,
         total_price: order.total_price - countLoseMoney,
@@ -395,7 +402,9 @@ export class OrdersService {
           });
       }
 
-      const [results, total] = await query.getManyAndCount();
+      const [results, total] = await query
+        .orderBy('order.created_at', 'DESC')
+        .getManyAndCount();
       return { results, total };
     } else if (searchin === 'returns') {
       const columns = ['return.short_id', 'client.user_name'];
@@ -435,46 +444,82 @@ export class OrdersService {
             termEnd: `%${searchwith.toLowerCase()}`,
           });
       }
-      const [results, total] = await query.getManyAndCount();
+      const [results, total] = await query
+        .orderBy('return.created_at', 'DESC')
+        .getManyAndCount();
       return { results, total };
     }
     throw new ConflictException('البحث غير مدعوم لهذه الفئة.');
   }
-
-  async calcReturns() {
-    const [retItems, total] = await this.returnsItemsRepo
-      .createQueryBuilder('retItem')
-      .select(['retItem.id', 'retItem.qty', 'retItem.unit_price'])
-      .getManyAndCount();
-    let totalReturnsPrices = 0;
-    for (const ret of retItems) {
-      totalReturnsPrices += ret.unit_price * ret.qty;
+  async handleGraphData(type: 'years' | 'months' | 'days') {
+    const typesArr = ['years', 'months', 'days'];
+    if (!type || !typesArr.includes(type)) {
+      throw new BadRequestException('يجب تحديد نوع صالح.');
     }
-    return { totalReturnsPrices, total };
+    const currDate = new Date();
+    const currYear = currDate.getFullYear();
+    const currMonth = currDate.getMonth() + 1;
+    const daysInMonth = new Date(currYear, currMonth, 0).getDate();
+
+    const totalGraphData = [];
+
+    if (type === 'years') {
+      const yearDiff = currYear - StartYear;
+      for (let i = 0; i <= yearDiff; i++) {
+        const year = StartYear + i;
+        const graphData = await this.getGraphData(year);
+        totalGraphData.push(graphData);
+      }
+    } else if (type === 'months') {
+      for (let month = 1; month <= 12; month++) {
+        const graphData = await this.getGraphData(currYear, month);
+        totalGraphData.push(graphData);
+      }
+    } else if (type === 'days') {
+      for (let day = 1; day <= daysInMonth; day++) {
+        const graphData = await this.getGraphData(currYear, currMonth, day);
+        totalGraphData.push(graphData);
+      }
+    }
+
+    return { totalGraphData };
   }
 
-  async calcEarnings() {
-    const [orders, countDoneEarning] = await this.ordersRepo
-      .createQueryBuilder('order')
-      .leftJoin('order.payment', 'payment')
-      .where('payment.status = :status', { status: PaidStatusEnum.PAID })
-      .select(['order.id', 'order.total_price', 'order.tax', 'order.discount'])
-      .getManyAndCount();
-
-    const [notCompletedorders, notCompletedEarning] = await this.ordersRepo
-      .createQueryBuilder('order')
-      .leftJoin('order.payment', 'payment')
-      .where('payment.status = :status', { status: PaidStatusEnum.PENDING })
-      .select(['order.id', 'order.total_price', 'order.tax', 'order.discount'])
-      .getManyAndCount();
-
+  async getGraphData(year: number, month?: number, day?: number) {
+    const query = this.ItemsRepo.createQueryBuilder('item')
+      .leftJoin('item.order', 'order')
+      .select([
+        'item.id',
+        'item.qty',
+        'item.unit_price',
+        'item.total_cost_price',
+      ])
+      .where(`EXTRACT(YEAR FROM order.created_at) = :year`, { year });
+    if (month !== undefined) {
+      query.andWhere(`EXTRACT(MONTH FROM order.created_at) = :month`, {
+        month,
+      });
+    }
+    if (day !== undefined) {
+      query.andWhere(`EXTRACT(DAY FROM order.created_at) = :day`, { day });
+    }
+    const orderItems = await query.getMany();
+    let totalEarning = 0;
+    let netProfit = 0;
+    for (const item of orderItems) {
+      const common = item.qty * item.unit_price;
+      totalEarning += common;
+      netProfit += common - item.total_cost_price;
+    }
     return {
-      paidOrders: await this.countForOrders(orders),
-      countPaidOrders: countDoneEarning,
-      notPaidOrders: await this.countForOrders(notCompletedorders),
-      countNotPaidOrders: notCompletedEarning,
+      totalEarning,
+      netProfit,
+      year,
+      month,
+      day,
     };
   }
+
   async countForOrders(orders: OrdersEntity[]) {
     let total = 0;
     for (const order of orders) {
@@ -487,5 +532,23 @@ export class OrdersService {
       total += totalPriceAfter;
     }
     return total;
+  }
+
+  async countOrders(year: number, month?: number) {
+    const query = this.ordersRepo
+      .createQueryBuilder('order')
+      .select(['order.id', 'order.total_price', 'order.discount']);
+    query.where(`EXTRACT(YEAR FROM order.created_at) = :year`, { year });
+    if (month) {
+      query.andWhere(`EXTRACT(MONTH FROM order.created_at) = :month`, {
+        month,
+      });
+    }
+    const [orders, count] = await query.getManyAndCount();
+    const earning = orders.reduce(
+      (acc, curr) => acc + (curr.total_price - curr.discount),
+      0,
+    );
+    return { count, earning };
   }
 }

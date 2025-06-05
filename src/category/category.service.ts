@@ -135,7 +135,9 @@ export class CategoryService {
           });
       }
 
-      const [results, total] = await query.getManyAndCount();
+      const [results, total] = await query
+        .orderBy('category.created_at', 'DESC')
+        .getManyAndCount();
       return { results, total };
     }
 

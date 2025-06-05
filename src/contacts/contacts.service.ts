@@ -56,7 +56,6 @@ export class ContactsService {
       where: { id: contactId },
       relations: ['worker'],
     });
-    console.log(updateContactDto);
     if (!contact) throw new NotFoundException('Contact not found.');
     if (contact.worker) {
       throw new ForbiddenException(

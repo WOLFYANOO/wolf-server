@@ -32,7 +32,7 @@ export class ProductSortsEntity {
   qty: number;
 
   @Column({ type: 'decimal' })
-  price: number;
+  unit_price: number;
   @Column({ nullable: true })
   note: string;
   @OneToMany(() => OrderItemsEntity, (order) => order.sort, {

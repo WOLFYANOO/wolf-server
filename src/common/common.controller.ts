@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { CommonService } from './common.service';
 
 @Controller('common')
@@ -24,6 +15,6 @@ export class CommonController {
   }
   @Get('calcs')
   async getAllCalcs() {
-    return await this.commonService.getAllCalcs();
+    return await this.commonService.getGenralCalcs();
   }
 }

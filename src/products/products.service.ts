@@ -178,8 +178,7 @@ export class ProductsService {
       await this.costsRepo.save(costsRepo);
     } catch (error) {
       console.error(error);
-      console.log('internal server error');
-      // throw new InternalServerErrorException(ErrorMsg);
+      throw new InternalServerErrorException(ErrorMsg);
     }
     return {
       done: true,
@@ -187,6 +186,7 @@ export class ProductsService {
     };
   }
   async updateSortQtyOrders(sortId: string, newQty: number) {
+    console.log('you right');
     const sort = await this.sortsRepo.findOne({
       where: { id: sortId },
       relations: ['product'],
@@ -230,14 +230,12 @@ export class ProductsService {
 
     try {
       if (updateSortDto.qty !== undefined) {
-        console.log('updateSortDto.qty !== undefined');
         const productQty = sort.product.qty - sort.qty + updateSortDto.qty;
         await this.productsRepo.save({
           ...sort.product,
           qty: productQty,
         });
         const newQty = updateSortDto.qty - sort.qty;
-        Object.assign(sort, updateSortDto);
         const newCost = this.costsRepo.create({
           sort,
           qty: newQty,
@@ -246,6 +244,7 @@ export class ProductsService {
         });
         await this.costsRepo.save(newCost);
       }
+      Object.assign(sort, updateSortDto);
       await this.sortsRepo.save(sort);
     } catch (error) {
       console.error(error);
@@ -284,7 +283,7 @@ export class ProductsService {
   async findOneSort(id: string) {
     const sort = await this.sortsRepo.findOne({
       where: { id },
-      relations: ['product'],
+      relations: ['product', 'costs'],
     });
     if (!sort) throw new NotFoundException('الصنف غير موجود');
     return sort;
@@ -356,62 +355,86 @@ export class ProductsService {
           name: sort.title,
           qty: sort.qty,
           costPrice: sort.qty * sort.cost_price,
-          price: sort.sell_price,
+          unit_price: sort.sell_price,
           color: '',
         });
       } else {
         problems.push(sort);
       }
     }
-    console.log('problems => ', problems);
-    console.log(items.length);
   }
-  async calcCurrentInventoryCost() {
+  async calcCurrentInventory() {
     const sorts = await this.sortsRepo
       .createQueryBuilder('sort')
       .leftJoin('sort.costs', 'cost')
-      .select(['sort.id', 'sort.qty', 'cost.id', 'cost.qty', 'cost.price'])
-      .orderBy('cost.created_at', 'ASC')
+      .select([
+        'sort.id',
+        'sort.qty',
+        'sort.unit_price',
+        'cost.id',
+        'cost.qty',
+        'cost.price',
+        'cost.created_at',
+      ])
       .getMany();
     let totalCostsPrice = 0;
+    let totalPrices = 0;
     for (const sort of sorts) {
-      totalCostsPrice += this.calcOneSortInventoryCost(sort);
+      totalCostsPrice += this.countCostPriceForOrder(
+        sort,
+        sort.qty,
+        true,
+      ) as any;
+      totalPrices += sort.qty * sort.unit_price;
     }
-    return { totalCostsPrice };
+    return { totalCostsPrice, totalPrices };
   }
-  calcOneSortInventoryCost(sort: ProductSortsEntity) {
-    console.log(sort);
-    let sortQty = sort.qty;
-    let totalCostPrice = 0;
-    for (const cost of sort.costs) {
-      if (sortQty > 0) {
-        const costUnitPrice = cost.price / cost.qty;
-        let appliedQty = cost.qty;
-        if (sortQty > cost.qty) {
-          sortQty -= cost.qty;
-        } else {
-          appliedQty = sortQty;
-          sortQty = 0;
+  countCostPriceForOrder(
+    sort: ProductSortsEntity,
+    orderQty: number,
+    isForCalcs?: boolean,
+  ) {
+    let currSortQty = sort.qty;
+    let filledCosts = [];
+    const sortedCosts = this.sortData(sort.costs, 'newFirst');
+    for (const cost of sortedCosts) {
+      if (cost.qty > 0) {
+        if (currSortQty > 0) {
+          currSortQty -= cost.qty;
+          filledCosts.push({
+            qty: currSortQty >= 0 ? cost.qty : currSortQty + cost.qty,
+            unit_price: cost.price / cost.qty,
+            created_at: cost.created_at,
+          });
         }
-        totalCostPrice += costUnitPrice * appliedQty;
-      } else {
-        break;
       }
     }
-    return totalCostPrice;
-  }
-  async calcCurrentInventoryPrices() {
-    const sorts = await this.sortsRepo
-      .createQueryBuilder('sort')
-      .where('sort.qty > 0')
-      .select(['sort.id', 'sort.price', 'sort.qty'])
-      .getMany();
-    let totalSortsPrices = 0;
-    for (const sort of sorts) {
-      totalSortsPrices += sort.price * sort.qty;
+    if (isForCalcs) {
+      return filledCosts.reduce(
+        (acc, crr) => acc + crr.qty * crr.unit_price,
+        0,
+      );
     }
-    return { totalSortsPrices };
+    let countCostPrice = 0;
+    for (const filledCost of this.sortData(filledCosts, 'oldFirst')) {
+      if (orderQty <= filledCost.qty) {
+        countCostPrice += orderQty * filledCost.unit_price;
+        break;
+      } else if (orderQty > filledCost.qty) {
+        countCostPrice += filledCost.qty * filledCost.unit_price;
+        orderQty -= filledCost.qty;
+      }
+    }
+    return countCostPrice;
   }
+  sortData(data: any[], type: 'oldFirst' | 'newFirst') {
+    return data.sort(
+      (a, b) =>
+        new Date((type === 'newFirst' ? b : a).created_at).getTime() -
+        new Date((type === 'newFirst' ? a : b).created_at).getTime(),
+    );
+  }
+
   async searchEngine(
     searchin: 'products' | 'sorts' | 'costs',
     searchwith: string,
@@ -483,7 +506,9 @@ export class ProductsService {
           });
       }
 
-      const [results, total] = await query.getManyAndCount();
+      const [results, total] = await query
+        .orderBy('sort.created_at', 'DESC')
+        .getManyAndCount();
       return { results, total };
     } else if (searchin === 'products') {
       const columns = [
@@ -554,7 +579,9 @@ export class ProductsService {
             termStart: `${searchwith.toLowerCase()}%`,
           });
       }
-      const [results, total] = await query.getManyAndCount();
+      const [results, total] = await query
+        .orderBy('product.created_at', 'DESC')
+        .getManyAndCount();
       return { results, total };
     } else if (searchin === 'costs') {
       const columns = [
@@ -626,7 +653,9 @@ export class ProductsService {
             termEnd: `%${searchwith.toLowerCase()}`,
           });
       }
-      const [results, total] = await query.getManyAndCount();
+      const [results, total] = await query
+        .orderBy('cost.created_at', 'DESC')
+        .getManyAndCount();
       return { results, total };
     }
 

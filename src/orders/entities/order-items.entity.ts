@@ -25,6 +25,9 @@ export class OrderItemsEntity {
 
   @Column({ type: 'decimal' })
   unit_price: number;
+
+  @Column({ type: 'decimal' })
+  total_cost_price: number;
   @OneToMany(() => ReturnsItemsEntity, (ret) => ret.order_item)
   returns_items: ReturnsItemsEntity;
 }

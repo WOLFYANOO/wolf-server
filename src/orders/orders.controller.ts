@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   UseGuards,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -58,7 +59,10 @@ export class OrdersController {
   async findReturnsItems(@Param('id', new ParseUUIDPipe()) id: string) {
     return await this.ordersService.findReturnsItems(id);
   }
-
+  @Get('graphData')
+  async getGraphData(@Query('type') type: 'years' | 'months' | 'days') {
+    return await this.ordersService.handleGraphData(type);
+  }
   @Get(':id')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return await this.ordersService.findOne(id);

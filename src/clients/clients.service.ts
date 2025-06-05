@@ -21,6 +21,7 @@ export class ClientsService {
     @InjectRepository(ShippingAddressesEntity)
     private readonly shippingAddressesRepo: Repository<ShippingAddressesEntity>,
   ) {}
+  //
   async create(user_name: string, tax_num: string) {
     const client = await this.findClientByName(user_name);
     if (client)
@@ -189,7 +190,9 @@ export class ClientsService {
           .orWhere(`${column} ILIKE :termEnd`, {
             termEnd: `%${searchwith.toLowerCase()}`,
           });
-        const [results, total] = await query.getManyAndCount();
+        const [results, total] = await query
+          .orderBy('sort.created_at', 'DESC')
+          .getManyAndCount();
         return { results, total };
       } else {
         query
@@ -205,7 +208,9 @@ export class ClientsService {
           .orWhere(`client.tax_num ILIKE :termEnd`, {
             termEnd: `%${searchwith.toLowerCase()}`,
           });
-        const [results, total] = await query.getManyAndCount();
+        const [results, total] = await query
+          .orderBy('client.created_at', 'DESC')
+          .getManyAndCount();
         return { results, total };
       }
     }

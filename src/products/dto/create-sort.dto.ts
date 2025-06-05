@@ -18,7 +18,7 @@ export class CreateSortDto {
   @IsNumber()
   qty: number;
   @IsNumber()
-  price: number;
+  unit_price: number;
   @IsNumber()
   costPrice: number;
   @IsOptional()

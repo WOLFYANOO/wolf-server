@@ -53,22 +53,20 @@ export class CommonService {
     }
     return service.searchEngine(searchin, searchwith || '', column);
   }
-  async getAllCalcs() {
-    const calcCurrentInventoryCost =
-      await this.productsService.calcCurrentInventoryCost();
-    const calcCurrentInventoryPrices =
-      await this.productsService.calcCurrentInventoryPrices();
-    const calcReturns = await this.ordersService.calcReturns();
-    const calcEarnings = await this.ordersService.calcEarnings();
+  async getGenralCalcs() {
+    const calcCurrentInventory =
+      await this.productsService.calcCurrentInventory();
     return {
-      totalCostsPrice: calcCurrentInventoryCost.totalCostsPrice,
-      totalSortsPrices: calcCurrentInventoryPrices.totalSortsPrices,
-      totalReturnsPrices: calcReturns.totalReturnsPrices,
-      countTotalReturnsPrices: calcReturns.total,
-      paidOrders: calcEarnings.paidOrders,
-      countPaidOrders: calcEarnings.countPaidOrders,
-      notPaidOrders: calcEarnings.notPaidOrders,
-      countNotPaidOrders: calcEarnings.countNotPaidOrders,
+      totalCostsPrice: calcCurrentInventory.totalCostsPrice,
+      totalSortsPrices: calcCurrentInventory.totalPrices,
     };
+  }
+
+  async getGraphCalcs(year: string, month?: string) {
+    const orders = await this.ordersService.countOrders(
+      Number(year),
+      Number(month),
+    );
+    return { orders: orders.count, sales: orders.earning };
   }
 }

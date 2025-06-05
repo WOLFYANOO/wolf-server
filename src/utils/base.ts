@@ -3,3 +3,5 @@ export const WebsiteBaseUrl =
 
 export const ErrorMsg =
   'There is a problem with the server. Please try again later.';
+// 2
+export const StartYear = 2025;
