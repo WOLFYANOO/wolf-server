@@ -19,6 +19,7 @@ import { BanWorkerDto } from './dto/ban-worker.dto';
 
 @Injectable()
 export class WorkersService {
+  //
   constructor(
     @InjectRepository(WorkersEntity)
     private readonly workersRepo: Repository<WorkersEntity>,
